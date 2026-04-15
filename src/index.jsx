@@ -955,8 +955,4 @@ function ToggleRow({ label, icon, checked, onCheckedChange }) {
   );
 }
 
-export default function App() {
-  return (
-    <div>...</div>
-  )
-}
+export default App
