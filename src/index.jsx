@@ -503,8 +503,8 @@ const RAW_WORDS = `1|de|of
 499|edad|age
 500|precio|price`;
 
-const STORAGE_KEY = "spanish-flashcards-vite-v1";
-const SETTINGS_KEY = "spanish-flashcards-settings-vite-v1";
+const STORAGE_KEY = "spanish-flashcards-vite-v2";
+const SETTINGS_KEY = "spanish-flashcards-settings-vite-v2";
 const DEFAULT_SETTINGS = {
   direction: "both",
   autoAudio: false,
@@ -542,32 +542,31 @@ const themeValues = {
   },
 };
 
-const parseWords = () =>
-  RAW_WORDS.split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [rank, spanish, english] = line.split("|");
-      return {
-        id: Number(rank),
-        rank: Number(rank),
-        spanish,
-        english,
-      };
-    });
+const words = RAW_WORDS.split("\n")
+  .map((line) => line.trim())
+  .filter(Boolean)
+  .map((line) => {
+    const [rank, spanish, english] = line.split("|");
+    return {
+      id: Number(rank),
+      rank: Number(rank),
+      spanish,
+      english,
+    };
+  });
 
-const words = parseWords();
-
-const defaultStats = () => ({
-  seen: 0,
-  correct: 0,
-  wrong: 0,
-  streak: 0,
-  ease: 2.3,
-  intervalHours: 0,
-  dueAt: 0,
-  lastSeenAt: 0,
-});
+function defaultStats() {
+  return {
+    seen: 0,
+    correct: 0,
+    wrong: 0,
+    streak: 0,
+    ease: 2.3,
+    intervalHours: 0,
+    dueAt: 0,
+    lastSeenAt: 0,
+  };
+}
 
 function safeJsonParse(value, fallback) {
   try {
@@ -625,7 +624,7 @@ function pickWeighted(items) {
 function formatDueLabel(timestamp) {
   if (!timestamp || timestamp <= Date.now()) return "Now";
   const diff = timestamp - Date.now();
-  const minutes = Math.round(diff / 60000);
+  const minutes = Math.max(1, Math.round(diff / 60000));
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h`;
@@ -637,7 +636,7 @@ function useResolvedTheme(theme) {
   const [resolvedTheme, setResolvedTheme] = useState("light");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return undefined;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
       const dark = theme === "dark" || (theme === "system" && media.matches);
@@ -650,7 +649,7 @@ function useResolvedTheme(theme) {
     };
     apply();
     const handleChange = () => apply();
-    if (media.addEventListener) {
+    if (typeof media.addEventListener === "function") {
       media.addEventListener("change", handleChange);
       return () => media.removeEventListener("change", handleChange);
     }
@@ -661,6 +660,40 @@ function useResolvedTheme(theme) {
   return resolvedTheme;
 }
 
+function panelStyle(theme, radius) {
+  return {
+    borderRadius: radius,
+    border: `1px solid ${theme.border}`,
+    background: theme.card,
+    boxShadow: theme.shadow,
+    backdropFilter: "blur(12px)",
+    padding: 20,
+  };
+}
+
+function labelStyle(theme) {
+  return {
+    marginBottom: 8,
+    fontSize: 13,
+    color: theme.muted,
+  };
+}
+
+function selectStyle(theme) {
+  return {
+    width: "100%",
+    borderRadius: 16,
+    border: `1px solid ${theme.border}`,
+    background: theme.cardSolid,
+    color: theme.text,
+    padding: "12px 14px",
+    outline: "none",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+  };
+}
+
 function App() {
   const [progress, setProgress] = useState(() => getStoredValue(STORAGE_KEY, {}));
   const [settings, setSettings] = useState(() => ({ ...DEFAULT_SETTINGS, ...getStoredValue(SETTINGS_KEY, DEFAULT_SETTINGS) }));
@@ -668,7 +701,7 @@ function App() {
   const [cardSeed, setCardSeed] = useState(0);
   const [promptSeed, setPromptSeed] = useState(0);
   const resolvedTheme = useResolvedTheme(settings.theme);
-  const theme = themeValues[resolvedTheme];
+  const theme = themeValues[resolvedTheme] || themeValues.light;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -724,6 +757,7 @@ function App() {
       const timeoutId = window.setTimeout(() => speak(promptPack.pronounce), 250);
       return () => window.clearTimeout(timeoutId);
     }
+    return undefined;
   }, [promptPack, settings.autoAudio]);
 
   const currentWordStats = useMemo(() => {
@@ -915,7 +949,7 @@ function App() {
                     borderRadius: 28,
                     border: `1px solid ${theme.border}`,
                     background: `linear-gradient(135deg, ${theme.cardSolid} 0%, ${theme.soft} 100%)`,
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06)`,
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
                     padding: 0,
                     color: theme.text,
                     cursor: "pointer",
@@ -1006,7 +1040,7 @@ function App() {
 
       <style>{`
         * { box-sizing: border-box; }
-        button, select { font: inherit; }
+        button, select, input { font: inherit; }
         @media (max-width: 1024px) {
           .top-grid, .main-grid { grid-template-columns: 1fr !important; }
         }
@@ -1018,25 +1052,6 @@ function App() {
       `}</style>
     </div>
   );
-}
-
-function panelStyle(theme, radius) {
-  return {
-    borderRadius: radius,
-    border: `1px solid ${theme.border}`,
-    background: theme.card,
-    boxShadow: theme.shadow,
-    backdropFilter: "blur(12px)",
-    padding: 20,
-  };
-}
-
-function labelStyle(theme) {
-  return {
-    marginBottom: 8,
-    fontSize: 13,
-    color: theme.muted,
-  };
 }
 
 function Metric({ icon, label, value, theme }) {
@@ -1121,10 +1136,8 @@ function IconButton({ onClick, children, theme, ariaLabel }) {
 }
 
 function ActionButton({ children, onClick, disabled = false, variant = "primary", theme }) {
-  const background =
-    variant === "danger" ? theme.danger : variant === "secondary" ? theme.cardSolid : theme.accent;
-  const color =
-    variant === "danger" ? "#ffffff" : variant === "secondary" ? theme.text : theme.accentText;
+  const background = variant === "danger" ? theme.danger : variant === "secondary" ? theme.cardSolid : theme.accent;
+  const color = variant === "danger" ? "#ffffff" : variant === "secondary" ? theme.text : theme.accentText;
   return (
     <button
       type="button"
